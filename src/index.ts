@@ -1,47 +1,52 @@
-import { Application, Loader, Texture, AnimatedSprite } from "pixi.js";
-import { getSpine } from "./spine-example";
-import { getLayersExample } from "./layers-example";
+import { Application, Loader, Sprite } from "pixi.js";
+import { Slots } from "./slots";
 import "./style.css";
 
 declare const VERSION: string;
 
 const gameWidth = 800;
-const gameHeight = 600;
-
-console.log(`Welcome from pixi-typescript-boilerplate ${VERSION}`);
+const gameHeight = 540;
 
 const app = new Application({
-    backgroundColor: 0xd3d3d3,
+    backgroundColor: 0xc71585,
     width: gameWidth,
     height: gameHeight,
 });
 
 window.onload = async (): Promise<void> => {
     await loadGameAssets();
+    const background = Sprite.from("./assets/background.png");
+    const foreground = Sprite.from("./assets/top_background.png");
+    app.stage.sortableChildren = true;
+    app.stage.addChild(background);
+    app.stage.addChild(foreground);
+    foreground.zIndex = 2;
+    background.width = foreground.width = app.screen.width;
+    background.height = foreground.height = app.screen.height;
+    // background.width = app.screen.width;
+    // background.height = app.screen.height;
+    console.log("bg", background.width, background.height);
+    console.log("fg", foreground.width, foreground.height);
 
     document.body.appendChild(app.view);
 
-    getLayersExample(app);
-
     resizeCanvas();
 
-    const birdFromSprite = getBird();
-    birdFromSprite.anchor.set(0.5, 0.5);
-    birdFromSprite.position.set(gameWidth / 2, 530);
+    new Slots(app);
 
-    const spineExample = getSpine();
-    spineExample.position.y = 580;
-
-    app.stage.addChild(birdFromSprite);
-    app.stage.addChild(spineExample);
     app.stage.interactive = true;
 };
 
 async function loadGameAssets(): Promise<void> {
     return new Promise((res, rej) => {
         const loader = Loader.shared;
-        loader.add("rabbit", "./assets/simpleSpriteSheet.json");
-        loader.add("pixie", "./assets/spine-assets/pixie.json");
+
+        loader.add("slot-1", "./assets/slot-1.png");
+        loader.add("slot-2", "./assets/slot-2.png");
+        loader.add("slot-3", "./assets/slot-3.png");
+        loader.add("slot-4", "./assets/slot-4.png");
+        loader.add("background", "./assets/background.png");
+        loader.add("top_background", "./assets/top_background.png");
 
         loader.onComplete.once(() => {
             res();
@@ -57,27 +62,12 @@ async function loadGameAssets(): Promise<void> {
 
 function resizeCanvas(): void {
     const resize = () => {
-        app.renderer.resize(window.innerWidth, window.innerHeight);
-        app.stage.scale.x = window.innerWidth / gameWidth;
-        app.stage.scale.y = window.innerHeight / gameHeight;
+        // app.renderer.resize(window.innerWidth, window.innerHeight);
+        // app.stage.scale.x = window.innerWidth / gameWidth;
+        // app.stage.scale.y = window.innerHeight / gameHeight;
     };
 
     resize();
 
     window.addEventListener("resize", resize);
-}
-
-function getBird(): AnimatedSprite {
-    const bird = new AnimatedSprite([
-        Texture.from("birdUp.png"),
-        Texture.from("birdMiddle.png"),
-        Texture.from("birdDown.png"),
-    ]);
-
-    bird.loop = true;
-    bird.animationSpeed = 0.1;
-    bird.play();
-    bird.scale.set(3);
-
-    return bird;
 }
