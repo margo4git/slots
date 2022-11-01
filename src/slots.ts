@@ -1,55 +1,184 @@
 import { Application, Container, filters, Graphics, Sprite, Text, TextStyle, Texture } from "pixi.js";
 // 1. add bounce
 // 2. change speed
+interface ReelSymbol {
+    sprite: Sprite;
+    id: string;
+}
+interface Reel {
+    id: number;
+    container: Container;
+    symbols: ReelSymbol[];
+    // symbolsIds: any[];
+    position: number;
+    previousPosition: number;
+    blur: any;
+}
+
+interface Tween {
+    reel: Reel;
+    property: keyof Reel;
+    propertyBeginValue: number;
+    target: number;
+    easing: (time: number) => number;
+    time: number;
+    change?: (tween: Tween) => void;
+    start: number;
+}
+
 export class Slots {
     private app: Application;
 
     // layout
+    private history = [];
     private REEL_WIDTH = 170;
     private SYMBOL_SIZE = 150;
+    private MINIMUM_TIME = 2500;
+    private finishCount = 0;
     private slotTextures = [
-        Texture.from("./assets/slot-1.png"),
-        Texture.from("./assets/slot-2.png"),
-        Texture.from("./assets/slot-3.png"),
-        Texture.from("./assets/slot-4.png"),
+        {
+            id: "slot_1",
+            sprite: Texture.from("./assets/slot-1.png"),
+        },
+        {
+            id: "slot_2",
+            sprite: Texture.from("./assets/slot-2.png"),
+        },
+        {
+            id: "slot_3",
+            sprite: Texture.from("./assets/slot-3.png"),
+        },
+        {
+            id: "slot_4",
+            sprite: Texture.from("./assets/slot-4.png"),
+        },
+    ];
+    private slotTexturesActive = [
+        {
+            id: "slot_1_active",
+            sprite: Texture.from("./assets/slot-1-active.png"),
+        },
+        {
+            id: "slot_2_active",
+            sprite: Texture.from("./assets/slot-2-active.png"),
+        },
+        {
+            id: "slot_3_active",
+            sprite: Texture.from("./assets/slot-3-active.png"),
+        },
+        {
+            id: "slot_4_active",
+            sprite: Texture.from("./assets/slot-4-active.png"),
+        },
     ];
 
     // state
     private isRunning = false;
-    private reels: any[] = [];
-    private tweening: any[] = [];
+    private reels: Reel[] = [];
+    private tweening: Tween[] = [];
 
     constructor(app: Application) {
         this.app = app;
         this.render();
     }
 
-    startPlay() {
+    startPlay = () => {
         if (this.isRunning) return;
-        this.isRunning = true;
-
+        this.onTweenStart();
         for (let i = 0; i < this.reels.length; i++) {
-            const r = this.reels[i];
+            const reel = this.reels[i];
             const extra = Math.floor(Math.random() * 3);
-            const target = r.position + 10 + i * 5 + extra;
-            const time = 2500 + i * 600 + extra * 600;
-            this.tweenTo(
-                r,
-                "position",
+            const target = reel.position + 10 + i * 5 + extra;
+            const time = this.MINIMUM_TIME + i * 600 + extra * 600;
+            this.tweenTo({
+                reel,
+                property: "position",
                 target,
                 time,
-                this.backout(0.5),
-                null,
-                i === this.reels.length - 1 ? () => this.reelsComplete() : null,
-            );
+                easing: this.backout(0.5),
+                onChange: this.onTweenChange,
+            });
         }
-    }
+    };
+    onTweenStart = () => {
+        console.log("START", this.reels);
+        this.history.forEach((line, i) => {
+            this.history[i] = [];
+        });
 
-    reelsComplete() {
+        this.isRunning = true;
+        this.finishCount = 0;
+    };
+
+    onTweenChange = (tween: Tween) => {
+        // console.log(tween.reel);
+        // tween.reel.id === 2 && console.log(tween.reel);
+        // console.log(tween);
+    };
+
+    onTweenComplete = () => {
         this.isRunning = false;
-    }
 
-    render() {
+        console.log(this.reels);
+
+        this.history.forEach((line, i) => {
+            this.history[i] = line.slice(line.length - 4, line.length - 1);
+        });
+
+        this.checkForVerticalCombo();
+        // this.checkForHorizontalCombo();
+        // this.checkForCrossCombo();
+
+        // [horizontal, vertical]
+        // const hoverSymbolList; // [[0,1], [0,2], [0,3], [0, 3], [0, 3]]
+    };
+
+    checkForCrossCombo = () => {
+        const crossHistory = [];
+    };
+
+    checkForVerticalCombo = () => {
+        const combos = [];
+        // const combos = this.getCombos(this.history);
+        for (let y = 0; y < this.history.length; y++) {
+            const line = this.history[y];
+            for (let x = 0; x < line.length; x++) {
+                if (line.every((next) => line[0] === next)) {
+                    combos.push({ i: line[x], x, y });
+                }
+            }
+        }
+
+        console.log("VERTICAL COMBOS", combos);
+
+        this.hightlightCombos(combos);
+    };
+
+    checkForHorizontalCombo = () => {
+        const combos = [];
+
+        // const reversed = this.history.map((line) => [...line].reverse());
+
+        for (let y = 0; y < this.history.length; y++) {
+            const line = this.history[y];
+            for (let x = 0; x < line.length; x++) {
+                if (this.history.every((next) => line[0] === next[x])) {
+                    combos.push({ i: line[x], y, x: line.length - x - 1 });
+                }
+            }
+        }
+
+        this.hightlightCombos(combos);
+        console.log("HORIZONTAL COMBOS", combos);
+    };
+
+    hightlightCombos = (combos: Array<{ y: number; x: number; i: number }>) => {
+        combos.forEach(({ x, y, i }) => {
+            this.reels[y].symbols[x + 1].sprite.texture = this.slotTexturesActive[i].sprite;
+        });
+    };
+
+    render = () => {
         const reelContainer = new Container();
         // const testContainer = new Container();
         // testContainer.x = 0;
@@ -65,9 +194,11 @@ export class Slots {
             rc.x = i * this.REEL_WIDTH;
             reelContainer.addChild(rc);
 
-            const reel = {
+            const reel: Reel = {
+                id: i,
                 container: rc,
                 symbols: [],
+                // symbolsIds: [],
                 position: 0,
                 previousPosition: 0,
                 blur: new filters.BlurFilter(),
@@ -77,18 +208,20 @@ export class Slots {
             rc.filters = [reel.blur];
 
             // Build the symbols
-            for (let j = 0; j < 4; j++) {
-                const symbol = new Sprite(this.slotTextures[Math.floor(Math.random() * this.slotTextures.length)]);
-                // Scale the symbol to fit symbol area.
-                symbol.y = j * this.SYMBOL_SIZE;
-                symbol.scale.x = symbol.scale.y = Math.min(
-                    this.SYMBOL_SIZE / symbol.width,
-                    this.SYMBOL_SIZE / symbol.height,
-                );
-                symbol.x = Math.round((this.SYMBOL_SIZE - symbol.width) / 2);
+            for (let j = 0; j < 5; j++) {
+                const symbolRandom = Math.floor(Math.random() * this.slotTextures.length);
 
-                reel.symbols.push(symbol);
-                rc.addChild(symbol);
+                const sprite = new Sprite(this.slotTextures[symbolRandom].sprite);
+                // Scale the symbol to fit symbol area.
+                sprite.y = j * this.SYMBOL_SIZE;
+                sprite.scale.x = sprite.scale.y = Math.min(
+                    this.SYMBOL_SIZE / sprite.width,
+                    this.SYMBOL_SIZE / sprite.height,
+                );
+                sprite.x = Math.round((this.SYMBOL_SIZE - sprite.width) / 2);
+                // reel.symbolsIds.push(symbolRandom);
+                reel.symbols.push({ sprite, id: this.slotTextures[symbolRandom].id });
+                rc.addChild(sprite);
             }
             this.reels.push(reel);
         }
@@ -108,7 +241,7 @@ export class Slots {
         const bottom = new Graphics();
         bottom.beginFill(0, 1);
         // bottom.arc(10, 10, 90);
-        bottom.drawRect(200, 0, 100, 100);
+        bottom.drawRect(0, 0, 100, 100);
 
         // Add play text
         const style = new TextStyle({
@@ -134,9 +267,9 @@ export class Slots {
         playText.y = 0;
         // playText.x = Math.round((bottom.width - playText.width) / 2);
         // playText.y = this.app.screen.height - positionY + Math.round((positionY - playText.height) / 2);
-        const bottomIcon = Sprite.from("./assets/slot-1.png");
+        // const bottomIcon = Sprite.from("./assets/slot-1.png");
 
-        bottom.addChild(bottomIcon);
+        // bottom.addChild(bottomIcon);
         // bottom.addChild(playText);
 
         // Add header text
@@ -159,81 +292,102 @@ export class Slots {
             this.startPlay();
         });
 
-        this.setupListeners();
-    }
+        this.setupTickers();
+    };
 
-    setupListeners() {
-        this.app.ticker.add((delta) => {
-            // Update the slots.
-            for (let i = 0; i < this.reels.length; i++) {
-                const r = this.reels[i];
-                // Update blur filter y amount based on speed.
-                // This would be better if calculated with time in mind also. Now blur depends on frame rate.
-                r.blur.blurY = (r.position - r.previousPosition) * 8;
-                r.previousPosition = r.position;
-
-                // Update symbol positions on reel.
-                for (let j = 0; j < r.symbols.length; j++) {
-                    const symbol = r.symbols[j];
-                    const prevy = symbol.y;
-                    symbol.y = ((r.position + j) % r.symbols.length) * this.SYMBOL_SIZE - this.SYMBOL_SIZE;
-                    if (symbol.y < 0 && prevy > this.SYMBOL_SIZE) {
-                        // Detect going over and swap a texture.
-                        // This should in proper product be determined from some logical reel.
-                        symbol.texture = this.slotTextures[Math.floor(Math.random() * this.slotTextures.length)];
-                        symbol.scale.x = symbol.scale.y = Math.min(
-                            this.SYMBOL_SIZE / symbol.texture.width,
-                            this.SYMBOL_SIZE / symbol.texture.height,
-                        );
-                        symbol.x = Math.round((this.SYMBOL_SIZE - symbol.width) / 2);
-                    }
-                }
-            }
-        });
-
-        this.app.ticker.add((delta) => {
+    setupTickers = () => {
+        this.app.ticker.add((delta: number) => {
             const now = Date.now();
             const remove = [];
             for (let i = 0; i < this.tweening.length; i++) {
-                const t = this.tweening[i];
-                const phase = Math.min(1, (now - t.start) / t.time);
+                const tween = this.tweening[i];
+                const phase = Math.min(1, (now - tween.start) / tween.time);
 
-                t.object[t.property] = this.lerp(t.propertyBeginValue, t.target, t.easing(phase));
-                if (t.change) t.change(t);
+                tween.reel[tween.property] = this.lerp(tween.propertyBeginValue, tween.target, tween.easing(phase));
+
+                if (tween.change) tween.change(tween);
                 if (phase === 1) {
-                    t.object[t.property] = t.target;
-                    if (t.complete) t.complete(t);
-                    remove.push(t);
+                    tween.reel[tween.property] = tween.target;
+                    this.finishCount += 1;
+                    if (this.finishCount === this.reels.length) this.onTweenComplete();
+                    remove.push(tween);
                 }
             }
             for (let i = 0; i < remove.length; i++) {
                 this.tweening.splice(this.tweening.indexOf(remove[i]), 1);
             }
         });
-    }
+        this.app.ticker.add((delta: number) => {
+            // if (!this.isRunning) return;
 
-    tweenTo(object, property, target, time, easing, onchange, oncomplete) {
-        const tween = {
-            object,
+            for (let i = 0; i < this.reels.length; i++) {
+                const r = this.reels[i];
+                // Update blur filter y amount based on speed.
+                // This would be better if calculated with time in mind also. Now blur depends on frame rate.
+                r.blur.blurY = (r.position - r.previousPosition) * 8;
+                r.previousPosition = r.position;
+                // Update symbol positions on reel.
+                for (let j = 0; j < r.symbols.length; j++) {
+                    const symbol = r.symbols[j];
+                    const prevY = symbol.sprite.y;
+                    symbol.sprite.y = ((r.position + j) % r.symbols.length) * this.SYMBOL_SIZE - this.SYMBOL_SIZE;
+                    if (symbol.sprite.y < 0 && prevY > this.SYMBOL_SIZE) {
+                        // Detect going over and swap a texture.
+                        // This should in proper product be determined from some logical reel.
+                        const nextSymbolIndex = Math.floor(Math.random() * this.slotTextures.length);
+                        const nextSymbol = this.slotTextures[nextSymbolIndex];
+                        // console.log("nextSymbolIndex", nextSymbolIndex);
+
+                        this.history[i] = [...(this.history[i] || []), nextSymbolIndex];
+                        // if (this.reels[i].id === 2) console.log(nextSymbolIndex);
+
+                        symbol.sprite.texture = nextSymbol.sprite;
+                        symbol.id = nextSymbol.id;
+                        symbol.sprite.scale.x = symbol.sprite.scale.y = Math.min(
+                            this.SYMBOL_SIZE / symbol.sprite.texture.width,
+                            this.SYMBOL_SIZE / symbol.sprite.texture.height,
+                        );
+                        symbol.sprite.x = Math.round((this.SYMBOL_SIZE - symbol.sprite.width) / 2);
+                    }
+                }
+            }
+        });
+    };
+
+    tweenTo = ({
+        reel,
+        property,
+        target,
+        time,
+        easing,
+        onChange,
+    }: {
+        reel: Reel;
+        property: keyof Reel;
+        target: number;
+        time: number;
+        easing: (time: number) => number;
+        onChange?: (tween: Tween) => void;
+    }) => {
+        const tween: Tween = {
+            reel,
             property,
-            propertyBeginValue: object[property],
+            propertyBeginValue: reel[property],
             target,
             easing,
             time,
-            change: onchange,
-            complete: oncomplete,
+            change: onChange,
             start: Date.now(),
         };
 
         this.tweening.push(tween);
-        return tween;
-    }
+    };
 
-    lerp(a1, a2, t) {
-        return a1 * (1 - t) + a2 * t;
-    }
+    lerp = (a1: number, a2: number, time: number) => {
+        return a1 * (1 - time) + a2 * time;
+    };
 
-    backout(amount) {
-        return (t) => --t * t * ((amount + 1) * t + amount) + 1;
-    }
+    backout = (amount: number): ((time: number) => number) => {
+        return (time) => --time * time * ((amount + 1) * time + amount) + 1;
+    };
 }

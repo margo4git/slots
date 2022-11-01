@@ -45,6 +45,10 @@ async function loadGameAssets(): Promise<void> {
         loader.add("slot-2", "./assets/slot-2.png");
         loader.add("slot-3", "./assets/slot-3.png");
         loader.add("slot-4", "./assets/slot-4.png");
+        loader.add("slot-1-active", "./assets/slot-1-active.png");
+        loader.add("slot-2-active", "./assets/slot-2-active.png");
+        loader.add("slot-3-active", "./assets/slot-3-active.png");
+        loader.add("slot-4-active", "./assets/slot-4-active.png");
         loader.add("background", "./assets/background.png");
         loader.add("top_background", "./assets/top_background.png");
 
