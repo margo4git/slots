@@ -60,16 +60,18 @@ export class Slots {
 
     // state
     private isRunning = false;
-
     private reelsById: { [key: ReelId]: Reel } = {};
     private reelsIds: ReelId[] = [];
-
     private historyById: { [key: ReelId]: ReelSymbol["id"][] } = {};
-    private history: string[][] = [];
-
     private tweening: Tween[] = [];
-
     private finishCount = 0;
+
+    // user
+    private balance = 70;
+    private bets = [10, 25, 50, 100];
+    private currentBet = this.bets[0];
+
+    private balanceText?: Text;
 
     constructor(app: Application) {
         this.app = app;
@@ -77,8 +79,16 @@ export class Slots {
     }
 
     private startPlay = () => {
+        if (this.balance - this.currentBet < 0) return;
         if (this.isRunning) return;
+
         this.onTweenStart();
+
+        this.balance -= this.currentBet;
+
+        if (this.balanceText) {
+            this.balanceText.text = `BALANCE: ${this.balance}`;
+        }
 
         this.reelsIds.forEach((id, index) => {
             const reel = this.reelsById[id];
@@ -150,9 +160,10 @@ export class Slots {
         const combos: Combo[] = [];
 
         dirtyCombos.forEach((line) => {
-            line.forEach((combo) => {
+            line.forEach((combo, index) => {
                 if (line.every(({ imageIndex }) => line[0].imageIndex === imageIndex)) {
                     combos.push(combo);
+                    if (index === 0) this.rewardUser();
                 }
             });
         });
@@ -165,6 +176,13 @@ export class Slots {
             this.reelsById[reelId].symbolsById[symbolId].sprite.texture = this.ACTIVE_SLOT_TEXTURES[imageIndex];
         });
     };
+
+    private rewardUser(multiplier = 3) {
+        this.balance += this.currentBet * multiplier;
+        if (this.balanceText) {
+            this.balanceText.text = `BALANCE: ${this.balance}`;
+        }
+    }
 
     private render = () => {
         const reelContainer = new Container();
@@ -187,8 +205,7 @@ export class Slots {
             reel.blur.blurY = 0;
             rc.filters = [reel.blur];
 
-            // Build the symbols
-            for (let j = 0; j < 4; j++) {
+            for (let j = 0; j < 5; j++) {
                 const imageIndex = Math.floor(Math.random() * this.SLOT_TEXTURES.length);
 
                 const sprite = new Sprite(this.SLOT_TEXTURES[imageIndex]);
@@ -198,7 +215,6 @@ export class Slots {
                     this.SYMBOL_SIZE / sprite.width,
                     this.SYMBOL_SIZE / sprite.height,
                 );
-                // sprite.x = Math.round((this.SYMBOL_SIZE - sprite.width) / 2);
                 sprite.x = 0;
 
                 const symbol = {
@@ -218,68 +234,91 @@ export class Slots {
         }
         this.app.stage.addChild(reelContainer);
 
-        // Build top & bottom covers and position reelContainer
         const positionY = (this.app.screen.height - this.SYMBOL_SIZE * 3) / 2;
         const positionX = (this.app.screen.width - reelContainer.width) / 2;
         reelContainer.y = positionY;
         reelContainer.x = positionX;
 
-        // reelContainer.y = this.SYMBOL_SIZE + 60;
-        // reelContainer.x = (this.app.screen.width - this.SYMBOL_SIZE * 3) / 2;
-        // const top = new Graphics();
-        // top.beginFill(0, 1);
-        // top.drawRect(0, 0, this.app.screen.width, 10);
-        const bottom = new Graphics();
-        bottom.beginFill(0, 1);
-        // bottom.arc(10, 10, 90);
-        bottom.drawRect(0, 0, 100, 100);
+        const borderHeight = 46;
+        const borderWidth = 58;
+        const startButtonWidth = 160;
+        const betButtonWidth = 180;
+        const uiZIndex = 3;
 
-        // Add play text
-        const style = new TextStyle({
+        const startButton = new Graphics();
+        const betButton = new Graphics();
+        const betSelectorContainer = new Container();
+
+        const textStyle = new TextStyle({
             fontFamily: "Arial",
-            fontSize: 36,
-            fontStyle: "italic",
+            fontSize: 24,
             fontWeight: "bold",
-            fill: ["#ffffff", "#00ff99"], // gradient
-            stroke: "#4a1850",
+            fill: "#ffffff",
             strokeThickness: 5,
-            dropShadow: true,
-            dropShadowColor: "#000000",
-            dropShadowBlur: 4,
-            dropShadowAngle: Math.PI / 6,
-            dropShadowDistance: 6,
-            wordWrap: true,
-            wordWrapWidth: 440,
+        });
+        this.balanceText = new Text(`BALANCE: ${this.balance}`, textStyle);
+        const startButtonText = new Text("SPIN!", textStyle);
+        const betButtonText = new Text(`BET: ${this.currentBet}`, textStyle);
+
+        this.bets.forEach((bet, index) => {
+            const nextBetButton = new Graphics();
+            const nextBetText = new Text(bet, textStyle);
+            const nextButtonHeight = 48;
+            nextBetText.x = (betButtonWidth - nextBetText.width) / 2;
+            nextBetText.y = (nextButtonHeight - nextBetText.height) / 2;
+            nextBetButton.addChild(nextBetText);
+            nextBetButton.y = index * (nextButtonHeight + 1);
+            nextBetButton.beginFill(0xe6a817, 1);
+            nextBetButton.drawRect(0, 0, betButtonWidth, nextButtonHeight);
+            betSelectorContainer.addChild(nextBetButton);
+
+            nextBetButton.interactive = true;
+            nextBetButton.buttonMode = true;
+
+            nextBetButton.addListener("pointerup", () => {
+                this.currentBet = bet;
+                betSelectorContainer.visible = false;
+                betButtonText.text = `BET: ${bet}`;
+                betButtonText.x = (betButtonWidth - betButtonText.width) / 2;
+            });
         });
 
-        const playText = new Text("Spin the wheels!", style);
+        betButton.beginFill(0x449114, 1);
+        startButton.beginFill(0x449114, 1);
+        startButton.drawRoundedRect(0, 0, startButtonWidth, borderHeight, 0);
+        betButton.drawRoundedRect(0, 0, betButtonWidth, borderHeight, 0);
 
-        playText.x = 0;
-        playText.y = 0;
-        // playText.x = Math.round((bottom.width - playText.width) / 2);
-        // playText.y = this.app.screen.height - positionY + Math.round((positionY - playText.height) / 2);
-        // const bottomIcon = Sprite.from("./assets/slot-1.png");
+        betSelectorContainer.x = this.app.screen.width - betSelectorContainer.width - borderWidth;
+        betSelectorContainer.y = this.app.screen.height - betSelectorContainer.height - 4 - borderHeight;
+        this.balanceText.y = this.app.screen.height - (this.balanceText.height + borderHeight) / 2;
+        this.balanceText.x = borderWidth;
+        startButton.x = (this.app.screen.width - startButtonWidth) / 2;
+        startButton.y = this.app.screen.height - borderHeight;
+        betButton.y = this.app.screen.height - borderHeight;
+        betButton.x = this.app.screen.width - betButtonWidth - borderWidth;
+        startButtonText.x = (startButtonWidth - startButtonText.width) / 2;
+        startButtonText.y = (borderHeight - startButtonText.height) / 2;
+        betButtonText.x = (betButtonWidth - betButtonText.width) / 2;
+        betButtonText.y = (borderHeight - betButtonText.height) / 2;
 
-        // bottom.addChild(bottomIcon);
-        // bottom.addChild(playText);
+        betButton.addChild(betButtonText);
+        startButton.addChild(startButtonText);
+        this.app.stage.addChild(this.balanceText);
+        this.app.stage.addChild(startButton);
+        this.app.stage.addChild(betButton);
+        this.app.stage.addChild(betSelectorContainer);
 
-        // Add header text
-        // const headerText = new Text("PIXI MONSTER SLOTS!", style);
-        // headerText.x = Math.round((top.width - headerText.width) / 2);
-        // headerText.y = Math.round((margin - headerText.height) / 2);
-        // top.addChild(headerText);
+        startButton.interactive = betButton.interactive = true;
+        startButton.buttonMode = betButton.buttonMode = true;
 
-        // const foreground = Sprite.from("./assets/top_background.png");
-        // this.app.stage.addChild(foreground);
+        startButton.zIndex = this.balanceText.zIndex = betButton.zIndex = betSelectorContainer.zIndex = uiZIndex;
 
-        // this.app.stage.addChild(top);
-        this.app.stage.addChild(bottom);
+        betSelectorContainer.visible = false;
 
-        // Set the interactivity.
-        bottom.interactive = true;
-        bottom.buttonMode = true;
-        bottom.zIndex = 3;
-        bottom.addListener("pointerdown", () => {
+        betButton.addListener("pointerup", () => {
+            betSelectorContainer.visible = !betSelectorContainer.visible;
+        });
+        startButton.addListener("pointerup", () => {
             this.startPlay();
         });
 
@@ -331,15 +370,6 @@ export class Slots {
 
                         reel.symbolsById[symbolId].imageIndex = imageIndex;
                         reel.symbolsById[symbolId].sprite.texture = nextSymbol;
-                        // reel.symbolsById[symbolId].sprite.scale.x = reel.symbolsById[symbolId].sprite.scale.y =
-                        //     Math.min(
-                        //         this.SYMBOL_SIZE / reel.symbolsById[symbolId].sprite.texture.width,
-                        //         this.SYMBOL_SIZE / reel.symbolsById[symbolId].sprite.texture.height,
-                        //     );
-                        // reel.symbolsById[symbolId].sprite.x = 0;
-                        // reel.symbolsById[symbolId].sprite.x = Math.round(
-                        //     (this.SYMBOL_SIZE - reel.symbolsById[symbolId].sprite.width) / 2,
-                        // );
                     }
                 });
             });
