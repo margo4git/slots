@@ -11,6 +11,7 @@
         "type-check:watch": "npm run type-check -- -w",
         "prebuild": "npm run clean",
         "clean": "npx rimraf dist",
+        "build": "npm run type-check && npm run webpack -- --env mode=production",
         "start": "npm-run-all --parallel type-check:watch dev",
         "dev": "npm run webpack-dev-server -- --env mode=development",
         "test": "npx jest",
@@ -21,7 +22,6 @@
         "lint-check": "npx eslint ./src/**/*.ts",
         "code-style-check": "npm run lint-check && npm run prettier:check",
         "deploy": "gh-pages -d build",
-        "build": "react-scripts build",
         "prepare": "husky install"
     },
     "author": "jkanchelov",
