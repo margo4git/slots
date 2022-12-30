@@ -29,7 +29,7 @@
     "dependencies": {
         "@pixi/layers": "^1.0.11",
         "@types/lodash-es": "^4.17.6",
-        "core-js": "^3.24.1",
+        "core-js": "^3.27.1",
         "cuid": "^2.1.8",
         "lodash-es": "^4.17.21",
         "pixi-spine": "^3.0.16",
