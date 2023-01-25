@@ -30,7 +30,7 @@
         "@pixi/layers": "^1.0.11",
         "@types/lodash-es": "^4.17.6",
         "core-js": "^3.24.1",
-        "cuid": "^2.1.8",
+        "cuid": "^3.0.0",
         "lodash-es": "^4.17.21",
         "pixi-spine": "^3.0.16",
         "pixi.js": "^6.5.1",
